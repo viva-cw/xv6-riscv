@@ -123,6 +123,7 @@ allocproc(void)
 
 found:
   p->pid = allocpid();
+  p->cputime = 0;
   p->state = USED;
 
   // Allocate a trapframe page.
@@ -410,6 +411,7 @@ kwait(uint64 addr)
       return -1;
     }
 
+
     // Wait for a child to exit.
     sleep_prepare(p); //DOC: wait-sleep
     release(&wait_lock);
@@ -418,6 +420,57 @@ kwait(uint64 addr)
   }
 }
 
+int
+wait2(uint64 addr, uint64 cputime_addr)
+{
+  struct proc *np;
+  int havekids, pid;
+  struct proc *p = myproc();
+
+  acquire(&wait_lock);
+
+  for(;;){
+    havekids = 0;
+    for(np = proc; np < &proc[NPROC]; np++){
+      if(np->parent == p){
+        acquire(&np->lock);
+        havekids = 1;
+        if(np->state == ZOMBIE){
+          pid = np->pid;
+          // 5-argument copyout for xstate
+          if(addr != 0 && copyout(p->pagetable, p->sz, addr, (char *)&np->xstate,
+                                  sizeof(np->xstate)) < 0) {
+            release(&np->lock);
+            release(&wait_lock);
+            return -1;
+          }
+          // 5-argument copyout for cputime
+          if(cputime_addr != 0 && copyout(p->pagetable, p->sz, cputime_addr, 
+                                  (char *)&np->cputime, sizeof(np->cputime)) < 0) {
+            release(&np->lock);
+            release(&wait_lock);
+            return -1;
+          }
+          freeproc(np);
+          release(&np->lock);
+          release(&wait_lock);
+          return pid;
+        }
+        release(&np->lock);
+      }
+    }
+
+    if(!havekids || p->killed){
+      release(&wait_lock);
+      return -1;
+    }
+    // Changed to ksleep to match your kernel's naming convention
+    sleep_prepare(p);
+    release(&wait_lock);
+    sleep();
+    acquire(&wait_lock);
+  }
+}
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -450,7 +503,6 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
-      printk("Tick %d: Scheduler picking pid %d, name: %s\n", ticks, p->pid, p->name);
         swtch(&c->context, &p->context);
 
         // Don't re-enable interrupts on release.
