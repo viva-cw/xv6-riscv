@@ -155,6 +155,7 @@ UPROGS=\
         $U/_wc\
         $U/_zombie\
         $U/_uptime\
+        $U/_time\
 	$U/_time1\
 	$U/_sleep\
 	$U/_matmul\
