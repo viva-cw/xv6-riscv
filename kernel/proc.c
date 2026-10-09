@@ -5,7 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
-
+#include "pstat.h"
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -110,7 +110,6 @@ static struct proc *
 allocproc(void)
 {
   struct proc *p;
-
   for (p = proc; p < &proc[NPROC]; p++) {
     acquire(&p->lock);
     if (p->state == UNUSED) {
@@ -125,6 +124,7 @@ found:
   p->pid = allocpid();
   p->cputime = 0;
   p->state = USED;
+  p->priority = 0;
 
   // Allocate a trapframe page.
   if ((p->trapframe = (struct trapframe *)kalloc()) == 0) {
@@ -709,6 +709,7 @@ either_copyout(int user_dst, uint64 dst, void *src, uint64 len)
 // Copy from either a user address, or kernel address,
 // depending on usr_src.
 // Returns 0 on success, -1 on error.
+
 int
 either_copyin(void *dst, int user_src, uint64 src, uint64 len)
 {
@@ -750,5 +751,37 @@ procdump(void)
       state = "???";
     printk("%d %s %s", p->pid, state, p->name);
     printk("\n");
+  }}
+
+int
+getprocs(uint64 dst)
+{
+  struct proc *p;
+  struct pstat ps;
+  int count = 0;
+  struct proc *my_proc = myproc();
+
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->state != UNUSED){
+      ps.pid = p->pid;
+      ps.state = p->state;
+      ps.size = p->sz;
+      ps.ppid = p->parent ? p->parent->pid : 0;
+      safestrcpy(ps.name, p->name, sizeof(p->name));
+      ps.priority = p->priority; // Task 2 priority mapping
+      
+      release(&p->lock);
+      
+      // Copy out to user space
+      if(copyout(my_proc->pagetable, my_proc->sz, dst + count * sizeof(struct pstat), (char *)&ps, sizeof(struct pstat)) < 0) {
+        return -1;
+      }
+      count++; // Increment the counter for the next process
+    } else {
+      release(&p->lock);
+    }
   }
+
+  return count; // Return the final count to sys_getprocs
 }

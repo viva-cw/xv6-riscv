@@ -1,7 +1,10 @@
 #define SBRK_ERROR ((char *)-1)
 
 struct stat;
+struct pstat;
 
+int getpriority(void);
+int setpriority(int);
 // system calls
 int fork(void);
 int exit(int) __attribute__((noreturn));
@@ -42,7 +45,7 @@ int memcmp(const void *, const void *, uint);
 void *memcpy(void *, const void *, uint);
 char *sbrk(int);
 char *sbrklazy(int);
-
+int getprocs(struct pstat*);
 // printf.c
 void fprintf(int, const char *, ...) __attribute__((format(printf, 2, 3)));
 void printf(const char *, ...) __attribute__((format(printf, 1, 2)));

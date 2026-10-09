@@ -119,3 +119,32 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+uint64
+sys_getprocs(void)
+{
+  uint64 pstat_addr;
+  argaddr(0, &pstat_addr);
+  return getprocs(pstat_addr);
+}
+uint64
+sys_getpriority(void)
+{
+  return myproc()->priority;
+}
+
+uint64
+sys_setpriority(void)
+{
+  int priority;
+  
+  // Grab the integer argument passed from the user
+  argint(0, &priority);
+  
+  // Validate the priority is within the allowed 0-49 range
+  if(priority < 0 || priority > 49) {
+    return -1; 
+  }
+  
+  myproc()->priority = priority;
+  return 0;
+}

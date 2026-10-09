@@ -147,6 +147,7 @@ UPROGS=\
 	$U/_usertests\
 	$U/_grind\
 	$U/_wc\
+	$U/_ps\
 	$U/_zombie\
 	$U/_logstress\
 	$U/_forphan\
@@ -157,6 +158,7 @@ UPROGS=\
         $U/_uptime\
         $U/_time\
 	$U/_time1\
+        $U/_pexec\
 	$U/_sleep\
 	$U/_matmul\
 	$U/_time2
