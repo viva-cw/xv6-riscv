@@ -275,6 +275,7 @@ kfork(void)
     return -1;
   }
   np->sz = p->sz;
+  np->priority = p->priority;
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
@@ -300,6 +301,7 @@ kfork(void)
 
   acquire(&np->lock);
   np->state = RUNNABLE;
+  p->readytime = ticks;
   release(&np->lock);
 
   return pid;
@@ -495,26 +497,57 @@ scheduler(void)
     intr_off();
 
     int found = 0;
-    for (p = proc; p < &proc[NPROC]; p++) {
+    #if SCHEDULER == SCHED_PRIO
+    struct proc *highest_p = 0;
+  int highest_eff_prio = -1;
+  int current_time = ticks;
+
+// Pass 1: Find the runnable process with the highest effective priority
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->state == RUNNABLE) {
+    
+      // Calculate aging: effective_priority = priority + age
+      int age = current_time - p->readytime;
+      int eff_priority = p->priority + age;
+      if (eff_priority > 99) {
+          eff_priority = 99; // MAXEFFPRIORITY cap
+      }
+
+      if(highest_p == 0 || eff_priority > highest_eff_prio) {
+        if(highest_p != 0)
+          release(&highest_p->lock);
+        highest_p = p;
+        highest_eff_prio = eff_priority;
+        continue; // Keep the lock on the new highest_p
+      }
+    }
+    release(&p->lock);
+  }
+
+    // Pass 2: Run the highest priority process we found
+    if(highest_p != 0) {
+      highest_p->state = RUNNING;
+      c->proc = highest_p;
+      swtch(&c->context, &highest_p->context);
+      c->proc = 0;
+      found = 1;
+      release(&highest_p->lock);
+    }
+#else
+    // Default Round-Robin
+    for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
-      if (p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
+      if(p->state == RUNNABLE) {
         p->state = RUNNING;
         c->proc = p;
         swtch(&c->context, &p->context);
-
-        // Don't re-enable interrupts on release.
-        mycpu()->intena = 0;
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
         c->proc = 0;
         found = 1;
       }
       release(&p->lock);
     }
+#endif
     if (found == 0) {
       // nothing to run; stop running on this core until an interrupt.
       asm volatile("wfi");
@@ -770,6 +803,7 @@ getprocs(uint64 dst)
       ps.ppid = p->parent ? p->parent->pid : 0;
       safestrcpy(ps.name, p->name, sizeof(p->name));
       ps.priority = p->priority; // Task 2 priority mapping
+      ps.readytime = p->readytime;
       
       release(&p->lock);
       

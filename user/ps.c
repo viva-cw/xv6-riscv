@@ -26,12 +26,23 @@ main(int argc, char **argv)
   if (nprocs < 0)
     exit(-1);
 
-  printf("pid\tstate\t\tsize\tppid\tprio\tname\n");
+  int current_time = uptime();
+int age;
+
+  printf("pid\tstate\t\tsize\tage\tppid\tprio\tname\n");
   for (i=0; i<nprocs; i++) {
     state = states[uproc[i].state];
-    printf("%d\t%s\t%d\t%d\t%d\t%s\n", uproc[i].pid, state,
-                   (int)uproc[i].size, uproc[i].ppid, uproc[i].priority, uproc[i].name);
+  
+  // Calculate age only if the process is ready to run
+    age = 0;
+    if (uproc[i].state == RUNNABLE) {
+      age = current_time - uproc[i].readytime;
+    }
+
+    printf("%d\t%s\t%d\t%d\t%d\t%d\t%s\n", uproc[i].pid, state,
+                   (int)uproc[i].size, age, uproc[i].ppid, uproc[i].priority, uproc[i].name);
   }
 
   exit(0);
 }
+
