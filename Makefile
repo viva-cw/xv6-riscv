@@ -29,7 +29,7 @@ OBJS = \
   $K/kernelvec.o \
   $K/plic.o \
   $K/virtio_disk.o
-
+  
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin
 #TOOLPREFIX = 
@@ -131,6 +131,8 @@ mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
 
 UPROGS=\
 	$U/_cat\
+	$U/_loop\
+	$U/_loop\
 	$U/_echo\
 	$U/_forktest\
 	$U/_grep\
@@ -150,7 +152,14 @@ UPROGS=\
 	$U/_forphan\
 	$U/_dorphan\
 	$U/_sync\
-
+        $U/_wc\
+        $U/_zombie\
+        $U/_uptime\
+        $U/_time\
+	$U/_time1\
+	$U/_sleep\
+	$U/_matmul\
+	$U/_time2
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
 
